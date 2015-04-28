@@ -23,9 +23,9 @@ function getMetadata(source) {
   }
 
   if (source.annotations) {
-    var options = metadata.options = {};
+    var annotations = metadata._annotations = {};
     source.annotations.forEach(function (annotation) {
-       options[annotation.name] = annotation.value;
+       annotations[annotation.name] = annotation.value;
     });
   }
 
@@ -42,7 +42,16 @@ function processArray(items, metadata) {
 
 function processType(source, metadata) {
   if (typeof source === 'string') {
-    return types[source]({ type: source }, metadata);
+    if (PRIMITIVES[source] != null) {
+      return processPrimitive(source, metadata);
+    }
+
+    if (typeof types[source] === 'function') {
+      return types[source]({ type: source }, metadata);
+    }
+
+    // TODO: verify definition exists
+    return { $ref: '#/definitions/' + source };
   }
 
   if (source.kind) {
@@ -61,15 +70,21 @@ types.Date = function (source, metadata) {
   });
 };
 
-function processPrimitive(source, metadata) {
-  var type = source.type === 'void' ? 'null' : source.type;
+var PRIMITIVES = {
+  any: 0,
+  boolean: 0,
+  number: 0,
+  string: 0,
+  void: 'null'
+}
+
+function processPrimitive(type, metadata) {
+  type = PRIMITIVES[type] || type;
   if (metadata && Object.keys(metadata).length) {
     return xtend(metadata, { type: type });
   }
   return type;
 }
-
-types.string = types.number = types.boolean = types.void = processPrimitive;
 
 function processObject(source) {
   return xtend(getMetadata(source), {
@@ -82,19 +97,15 @@ function processProperty(source) {
   return processType(source.type, getMetadata(source));
 }
 
+function allOf(ref) {
+  return { $ref: '#/definitions/' + ref.replace(/\./g, '/') };
+}
 
 var kinds = {};
 
 function processKind(source, metadata) {
   return kinds[source.kind](source, metadata);
 }
-
-//
-// return a $ref pointer to relative schema path
-//
-kinds.import = function (source) {
-  return { $ref: source.require.replace(/['"]/g, '') + '.schema.json' };
-};
 
 kinds.alias = function (source, metadata) {
   return processKind(source.type, xtend(metadata, getMetadata(source)));
@@ -104,26 +115,16 @@ kinds.array = function (source, metadata) {
   return processArray(source.type, metadata);
 };
 
-kinds.reference = function (source, metadata) {
-  if (source.type === 'Array') {
-    return processArray(source.arguments[0], metadata);
-  }
-  assert.equal(null, source, 'Unknown reference type: ' + source.type);
-};
-
-kinds.union = function (source) {
-  return source.types.map(function (type) {
-    return processType(type, getMetadata(type));
-  });
-};
-
 kinds.class = function (source, metadata) {
   var result = processObject(source, metadata);
 
   if (source.implements) {
-    result.allOf = source.implements.map(function (ref) {
-      return { $ref: '#/definitions/' + ref.replace(/\./g, '/') };
-    });
+    result.allOf = source.implements.map(allOf);
+  }
+
+  if (source.extends) {
+    result.allOf || (result.allOf = []);
+    result.allOf.unshift(allOf(source.extends));
   }
   
   var required = [];
@@ -145,8 +146,32 @@ kinds.class = function (source, metadata) {
   return result;
 };
 
+kinds.enum = function (source, metadata) {
+  // TODO: use oneOf rather than enum?
+  var result = getMetadata(source);
+  var _options = result._options = [];
+  result.enum = source.members.map(function (member) {
+    var option = getMetadata(member) || {};
+    option.id = member.name;
+    _options.push(option);
+    return member.value;
+  });
+  return result;
+};
+
+//
+// return a $ref pointer to relative schema path
+//
+kinds.import = function (source) {
+  return { $ref: source.require.replace(/['"]/g, '') + '.schema.json' };
+};
+
 kinds.interface = function (source) {
   var result = processObject(source);
+
+  if (source.extends) {
+    result.allOf = source.extends.map(allOf);
+  }
 
   var required = [];
   (source.signatures || []).forEach(function (signature) {
@@ -164,6 +189,19 @@ kinds.interface = function (source) {
   }
 
   return result;
+};
+
+kinds.reference = function (source, metadata) {
+  if (source.type === 'Array') {
+    return processArray(source.arguments[0], metadata);
+  }
+  assert.equal(null, source, 'Unknown reference type: ' + source.type);
+};
+
+kinds.union = function (source) {
+  return source.types.map(function (type) {
+    return processType(type, getMetadata(type));
+  });
 };
 
 function buildSchema(sources) {
@@ -194,7 +232,7 @@ function buildSchema(sources) {
   return schema;
 }
 
-module.exports = function (paths, options) {
+exports.compile = function (paths, options) {
   options || (options = {});
 
   var cache = {};
@@ -262,7 +300,11 @@ module.exports = function (paths, options) {
   }), options, compilerHost);
 
   if (output.length) {
-    throw new Error(output);
+    //
+    // log all errors and rethrow the first one
+    //
+    console.error(output);
+    throw new TypeError('Compile failure: ' + output[0].messageText);
   }
 
   //

@@ -1,5 +1,5 @@
 var assert = require('assert');
-var compile = require('../');
+var schema = require('../');
 var fs = require('fs');
 
 var models = fs.readdirSync(__dirname + '/models').filter(function (name) {
@@ -9,5 +9,5 @@ var models = fs.readdirSync(__dirname + '/models').filter(function (name) {
 })
 
 console.log('compiling: \n\n' + models.join('\n'))
-var results = compile(models, { noWrite: true });
+var results = schema.compile(models, { noWrite: true });
 console.log(JSON.stringify(results, null, '  '))

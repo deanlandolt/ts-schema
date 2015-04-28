@@ -6,7 +6,7 @@
 interface User {
 
   /** @id */
-  id: string | number;
+  id: string;
 
   /**
    * The full name of the user

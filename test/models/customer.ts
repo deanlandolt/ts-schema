@@ -3,21 +3,38 @@ import User = require('./user');
 /**
  * Customer model
  */
-class Customer implements User {
+export class Customer implements User {
 
-  public id: string | number;
+  public id: string;
 
-  public name: string;
+  /**
+   * Default property values are not yet reflected in ts-reflect.
+   */
+  name: string = 'John Doe';
 
   /**
    * Customer account number
    */
-  account: string;
+  account: string | number;
 }
 
-export = Customer;
+export enum AnimationType {
+  /**
+   * Bounce description...
+   */
+  BOUNCE,
+  DROP,
+  SLIDE
+}
 
-//
-// exports class ParameterizedCustomer<T, U> implements User {
-//  
-//}
+export class ParameterizedCustomer<T, U> extends Customer {
+  /**
+   * Private variables are serialized by default
+   *
+   * This can be changed with some configuration parameters.
+   */
+  private foo: any;
+
+  animation: AnimationType;
+
+}
