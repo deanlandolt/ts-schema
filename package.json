@@ -1,0 +1,30 @@
+{
+  "name": "ts-schema",
+  "version": "0.1.0",
+  "description": "Model schemas extracted from TypeScript classes",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deanlandolt/typewise-model.git"
+  },
+  "keywords": [
+    "json",
+    "schema",
+    "model",
+    "class",
+    "typescript"
+  ],
+  "author": "Dean Landolt <dean@deanlandolt.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/deanlandolt/typewise-model/issues"
+  },
+  "homepage": "https://github.com/deanlandolt/typewise-model",
+  "dependencies": {
+    "tsreflect-compiler": "^0.1.5",
+    "xtend": "^4.0.0"
+  }
+}
